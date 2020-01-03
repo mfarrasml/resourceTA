@@ -1,13 +1,14 @@
 #include<Wire.h>
 #include<LiquidCrystal_I2C.h>
 #include<Keypad.h>
+#include<Arduino_FreeRTOS.h>
 
 //PINS
-#define PUMP1 A0
-#define PUMP2 A1
-#define PUMP3 10
-#define DIR0 11
-#define DIR1 12
+#define PUMP1 22
+#define PUMP2 23
+#define PUMP3 24
+#define DIR0 25
+#define DIR1 26
 
 //Variables
 #define LCD_ADDRESS 0x27
@@ -39,13 +40,16 @@ struct sequenceParameters {
 
 // variabel-variabel untuk menyimpan parameter sementara
 int pumpstr = 1;
-String flowRatestr = "";
+int flowRatestr = 0;
 int flowDirstr = 0;
-String durationstr = "";
-String volumestr = "";
+long durationstr = 0;
+long volumestr = 0;
 
 //variabel yang menyimpan variabel dari keseluruhan sekuens
 sequenceParameters sequenceData;
+
+//variabel untuk mengatur nyala atau tidaknya pompa
+boolean pump_start = false;
 
 // Men-set karakter yang diterima ketika keypad ditekan user
 char keypadKeys[ROWS][COLS] = {
@@ -86,6 +90,10 @@ Keypad customKeypad = Keypad(makeKeymap(keypadKeys), rowPins, colPins, ROWS, COL
 
 LiquidCrystal_I2C lcd(LCD_ADDRESS, 16, 2);
 
+void TaskInterface( void *pvParameters );
+void TaskPump( void *pvParameters );
+
+
 void setup() {
   Serial.begin(9600);
   //inisialisasi LCD
@@ -103,246 +111,288 @@ void setup() {
   pinMode(DIR0, OUTPUT);
   pinMode(DIR1, OUTPUT);
 
+  turnOff();
+
   state = 1;
   state_input = 0;
   stateInput();
+
+  //inisialisasi Task-task
+
+  xTaskCreate(
+    TaskInterface
+    ,  (const portCHAR *)"Interface"  // A name just for humans
+    ,  500  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL //parameter
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL );
+
+  //menjalankan pompa
+  xTaskCreate(
+    TaskPump
+    , (const portCHAR *) "Pumping"
+    , 240
+    , NULL
+    , 1
+    , NULL);
 }
 
 void loop() {
-  const char customKey = customKeypad.getKey();
-  char buffer[20];
-  if (state == 1) {
-    if (customKey) {
-      if (customKey == '#') { // tombol enter
-        switch (state_input) {
-          case 0:
-            state_input = 1;
-            stateInput();
-            break;
-          case 1:
-            state_input = 2;
-            stateInput();
-            break;
-          case 2:
-            state_input = 3;
-            stateInput();
-            break;
-          case 3:
-            state_input = 5;
-            if (durationstr != "") {
-              saveParameter();
+
+}
+
+void TaskInterface(void *pvParameters __attribute__((unused))) {
+  for (;;) {
+    char buffer[20];
+    char customKey = customKeypad.getKey();
+    if (state == 1) {
+      if (customKey) {
+        if (customKey == '#') { // tombol enter
+          switch (state_input) {
+            case 0:
+              state_input = 1;
               stateInput();
-            }
-            break;
-          case 4:
-            state_input = 5;
-            if (volumestr != "") {
-              saveParameter();
+              break;
+            case 1:
+              state_input = 2;
               stateInput();
-            }
-            break;
-          case 5:
-            if (state_input_final == 0) {
-              //hapus data sequence ini
-              if (seq > 0) {
-                seq--;
+              break;
+            case 2:
+              state_input = 3;
+              stateInput();
+              break;
+            case 3:
+              state_input = 5;
+              if (durationstr != "") {
+                saveParameter();
                 stateInput();
               }
-            }
-            else if (state_input_final == 1) {
-              //tambah sequence baru
-              state_input = 0;
+              break;
+            case 4:
+              state_input = 5;
+              if (volumestr != "") {
+                saveParameter();
+                stateInput();
+              }
+              break;
+            case 5:
+              if (state_input_final == 0) {
+                //hapus data sequence ini
+                if (seq > 0) {
+                  seq--;
+                  stateInput();
+                }
+              }
+              else if (state_input_final == 1) {
+                //tambah sequence baru
+                state_input = 0;
+                stateInput();
+              }
+              else if (state_input_final == 2) {
+                if (seq > 0) {
+                  i = 0;
+                  state = 2;
+                  informationInterface();
+                }
+              }
+              break;
+            default:
+              break;
+          }
+        }
+        else if (customKey == '*') { // tombol hapus
+          deleteButton();
+        }
+        else if (customKey == 'A') { // tombol panah atas
+
+        }
+        else if (customKey == 'B') { // tombol panah bawah
+
+        }
+        else if (customKey == 'C') { // tombol panah kanan
+          switch (state_input) {
+            case 0:
+              if (pumpstr < 3) {
+                pumpstr++;
+              }
+              else {
+                pumpstr = 1;
+              }
+              stateInputPump();
+              break;
+            case 1:
+              if (flowDirstr < 1) {
+                flowDirstr ++;
+              }
+              else {
+                flowDirstr = 0;
+              }
+              stateInputDir();
+              break;
+            case 3:
+              state_input = 4;
               stateInput();
-            }
-            else if (state_input_final == 2) {
-              if (seq > 0) {
-                i = 0;
-                state = 2;
-                informationInterface();
+              break;
+            case 4:
+              state_input = 3;
+              stateInput();
+              break;
+            case 5:
+              if (state_input_final < 2) {
+                state_input_final++;
               }
-            }
-            break;
-          default:
-            break;
+              else {
+                state_input_final = 0;
+              }
+              stateInputFinal();
+              break;
+            default:
+              break;
+          }
+        }
+        else if (customKey == 'D') { // tombol panah kiri
+          switch (state_input) {
+            case 0:
+              if (pumpstr > 1) {
+                pumpstr--;
+              }
+              else {
+                pumpstr = 3;
+              }
+              stateInputPump();
+              break;
+            case 1:
+              if (flowDirstr > 0) {
+                flowDirstr --;
+              }
+              else {
+                flowDirstr = 1;
+              }
+              stateInputDir();
+              break;
+            case 3:
+              state_input = 4;
+              stateInput();
+              break;
+            case 4:
+              state_input = 3;
+              stateInput();
+              break;
+            case 5:
+              if (state_input_final > 0) {
+                state_input_final--;
+              }
+              else {
+                state_input_final = 2;
+              }
+              stateInputFinal();
+              break;
+            default:
+              break;
+          }
+        }
+        else {
+          switch (state_input) {
+            case 2:
+              if (flowRatestr < 3200) {
+                if (!((flowRatestr == 0) && (customKey == '0'))) {
+                  flowRatestr = addCharToInt(flowRatestr, customKey);
+                  updateParameter();
+                }
+              }
+              break;
+            case 3:
+              if (durationstr < 10000) {
+                if (!((durationstr == 0) && (customKey == '0'))) {
+                  durationstr = addCharToInt(durationstr, customKey);
+                  updateParameter();
+                }
+              }
+
+              break;
+            case 4:
+              if (volumestr < 3200) {
+                if (!((volumestr == 0) && (customKey == '0'))) {
+                  volumestr = addCharToInt(volumestr, customKey);
+                  updateParameter();
+                }
+              }
+              break;
+          }
         }
       }
-      else if (customKey == '*') { // tombol hapus
-        deleteButton();
-      }
-      else if (customKey == 'A') { // tombol panah atas
-
-      }
-      else if (customKey == 'B') { // tombol panah bawah
-
-      }
-      else if (customKey == 'C') { // tombol panah kanan
-        switch (state_input) {
-          case 0:
-            if (pumpstr < 3) {
-              pumpstr++;
-            }
-            else {
-              pumpstr = 1;
-            }
-            stateInputPump();
-            break;
-          case 1:
-            if (flowDirstr < 1) {
-              flowDirstr ++;
-            }
-            else {
-              flowDirstr = 0;
-            }
-            stateInputDir();
-            break;
-          case 3:
-            state_input = 4;
-            stateInput();
-            break;
-          case 4:
-            state_input = 3;
-            stateInput();
-            break;
-          case 5:
-            if (state_input_final < 2) {
-              state_input_final++;
-            }
-            else {
-              state_input_final = 0;
-            }
-            stateInputFinal();
-            break;
-          default:
-            break;
+    }
+    else if (state == 2) {
+      //Menjalankan sequence pompa
+      // sinyal untuk menandakan pompa yang berjalan //
+      // sinyal untuk menandakan arah jalan pompa //
+      if ((customKey == 'C') || (customKey == 'D')) {
+        if (state_info == 0) {
+          state_info = 1;
+          lcd.setCursor(3, 0);
+          sprintf(buffer, "Sequence %d", i + 1);
+          lcd.print(buffer);
+          lcd.setCursor(0, 1);
+          lcd.write(0);
+          lcd.print("TIME:       s ");
+          lcd.write(1);
+          lcd.print(" ");
+          lcd.setCursor(7, 1);
+          lcd.print(timeLeft);
+        }
+        else if (state_info == 1) {
+          state_info = 0;
+          lcd.setCursor(3, 0);
+          sprintf(buffer, "Sequence %d", i + 1);
+          lcd.print(buffer);
+          lcd.setCursor(0, 1);
+          lcd.print("FLOW:       uL/m");
+          lcd.setCursor(6, 1);
+          lcd.print(sequenceData.flowRate[i]);
         }
       }
-      else if (customKey == 'D') { // tombol panah kiri
-        switch (state_input) {
-          case 0:
-            if (pumpstr > 1) {
-              pumpstr--;
-            }
-            else {
-              pumpstr = 3;
-            }
-            stateInputPump();
-            break;
-          case 1:
-            if (flowDirstr > 0) {
-              flowDirstr --;
-            }
-            else {
-              flowDirstr = 1;
-            }
-            stateInputDir();
-            break;
-          case 3:
-            state_input = 4;
-            stateInput();
-            break;
-          case 4:
-            state_input = 3;
-            stateInput();
-            break;
-          case 5:
-            if (state_input_final > 0) {
-              state_input_final--;
-            }
-            else {
-              state_input_final = 2;
-            }
-            stateInputFinal();
-            break;
-          default:
-            break;
+      if (timeLeft >= 0) { // count sisa waktu pengaliran
+        timeLeft = (sequenceData.duration[i] -  (millis() - startTime)) / 1000;
+        //update durasi sisa
+        if (timeLeft != timeLeftLast) {
+          if (state_info == 1) {
+            lcd.setCursor(7, 1);
+            lcd.print("      s ");
+            lcd.setCursor(7, 1);
+            lcd.print(timeLeft);
+          }
+          timeLeftLast = timeLeft;
         }
       }
-      else {
-        switch (state_input) {
-          case 2:
-            if (flowRatestr.length() < 5) {
-              if (!((flowRatestr.length() == 0) && (customKey == '0'))) {
-                flowRatestr += customKey;
-                updateParameter();
-              }
-            }
-            break;
-          case 3:
-            if (durationstr.length() < 5) {
-              if (!((durationstr.length() == 0) && (customKey == '0'))) {
-                durationstr += customKey;
-                updateParameter();
-              }
-            }
-
-            break;
-          case 4:
-            if (volumestr.length() < 5) {
-              if (!((volumestr.length() == 0) && (customKey == '0'))) {
-                volumestr += customKey;
-                updateParameter();
-              }
-            }
-            break;
+      else { // durasi pengaliran selesai
+        i++;
+        pump_start = false;
+        if (i >= seq) { //kembali ke interface input sekuens
+          seq = 0;
+          i = 0;
+          state = 1;
+          state_input = 0;
+          turnOff();
+          stateInput();
+        }
+        else {
+          informationInterface();
         }
       }
     }
   }
-  else if (state == 2) {
-    //Menjalankan sequence pompa
-    // sinyal untuk menandakan pompa yang berjalan //
-    // sinyal untuk menandakan arah jalan pompa //
-    if ((customKey == 'C') || (customKey == 'D')) {
-      if (state_info == 0) {
-        state_info = 1;
-        lcd.setCursor(3, 0);
-        sprintf(buffer, "Sequence %d", i + 1);
-        lcd.print(buffer);
-        lcd.setCursor(0, 1);
-        lcd.write(0);
-        lcd.print("TIME:       s ");
-        lcd.write(1);
-        lcd.print(" ");
-        lcd.setCursor(7, 1);
-        lcd.print(timeLeft);
-      }
-      else if (state_info == 1) {
-        state_info = 0;
-        lcd.setCursor(3, 0);
-        sprintf(buffer, "Sequence %d", i + 1);
-        lcd.print(buffer);
-        lcd.setCursor(0, 1);
-        lcd.print("FLOW:       uL/m");
-        lcd.setCursor(6, 1);
-        lcd.print(sequenceData.flowRate[i]);
-      }
-    }
-    if (timeLeft >= 0) { // count sisa waktu pengaliran
-      timeLeft = (sequenceData.duration[i] -  (millis() - startTime)) / 1000;
-      //update durasi sisa
-      if (timeLeft != timeLeftLast) {
-        if (state_info == 1) {
-          lcd.setCursor(7, 1);
-          lcd.print("      s ");
-          lcd.setCursor(7, 1);
-          lcd.print(timeLeft);
-        }
-        timeLeftLast = timeLeft;
-      }
-    }
-    else { // durasi pengaliran selesai
-      i++;
-      if (i >= seq) { //kembali ke interface input sekuens
-        seq = 0;
-        i = 0;
-        state = 1;
-        state_input = 0;
-        turnOff();
-        stateInput();
-      }
-      else {
-        informationInterface();
-      }
+}
+
+void TaskPump(void *pvParameters __attribute__((unused))) {
+  TickType_t xLastWakeTime;
+
+  for (;;) {
+    xLastWakeTime = xTaskGetTickCount();
+    // menjalankan pompa jika menerima perintah pump_start = true
+    while (pump_start) {
+      // Menjalankan pompa
+      Serial.println(sequenceData.flowRate[i]);
+      vTaskDelayUntil( &xLastWakeTime, (sequenceData.flowRate[i] / portTICK_PERIOD_MS) );
     }
   }
 }
@@ -511,7 +561,7 @@ void informationInterface() {
       lcd.print("TIME:       s ");
       lcd.write(1);
       lcd.setCursor(7, 1);
-      lcd.print(sequenceData.duration[i]/1000);
+      lcd.print(sequenceData.duration[i] / 1000);
       break;
   }
 
@@ -552,6 +602,10 @@ void informationInterface() {
   startTime = millis();
   timeLeft = sequenceData.duration[i] / 1000;
   timeLeftLast = timeLeft;
+
+  pump_start = true;
+
+
 }
 
 // menyelesaikan sekuens dan mematikan seluruh output sekuens
@@ -587,32 +641,38 @@ void updateParameter() {
   switch (state_input) {
     case 2:
       lcd.setCursor(6, 1);
-      if (flowRatestr == "") {
+      if (flowRatestr == 0) {
         lcd.print('0');
         lcd.setCursor(6, 1);
       }
       else {
+        lcd.print("     ");
+        lcd.setCursor(6, 1);
         lcd.print(flowRatestr);
       }
       break;
     case 3:
       lcd.setCursor(7, 1);
-      if (durationstr == "") {
+      if (durationstr == 0) {
         lcd.print('0');
         lcd.setCursor(7, 1);
       }
       else {
+        lcd.print("     ");
+        lcd.setCursor(7, 1);
         lcd.print(durationstr);
       }
 
       break;
     case 4:
       lcd.setCursor(7, 1);
-      if (volumestr == "") {
+      if (volumestr == 0) {
         lcd.print('0');
         lcd.setCursor(7, 1);
       }
       else {
+        lcd.print("     ");
+        lcd.setCursor(7, 1);
         lcd.print(volumestr);
       }
   }
@@ -628,26 +688,26 @@ void parameterInput(char c) {
       }
       break;
     case 2:
-      if (flowRatestr.length() < 5) {
-        if (!((flowRatestr.length() == 0) && (c == '0'))) {
-          flowRatestr += c;
+      if (flowRatestr < 10000) {
+        if (!((flowRatestr == 0) && (c == '0'))) {
+          flowRatestr = addCharToInt(flowRatestr, c);
           lcd.print(c);
         }
       }
       break;
     case 3:
       if (state_durationvolume == 0) {
-        if (durationstr.length() < 5) {
-          if (!((durationstr.length() == 0) && (c == '0'))) {
-            durationstr += c;
+        if (durationstr < 10000) {
+          if (!((durationstr == 0) && (c == '0'))) {
+            durationstr = addCharToInt(durationstr, c);
           }
           lcd.print(c);
         }
       }
       else {
-        if (volumestr.length() < 5) {
-          if (!((volumestr.length() == 0) && (c == '0'))) {
-            volumestr += c;
+        if (volumestr < 10000) {
+          if (!((volumestr == 0) && (c == '0'))) {
+            volumestr = addCharToInt(volumestr, c);
           }
           lcd.print(c);
         }
@@ -658,34 +718,21 @@ void parameterInput(char c) {
 
 // menghapus 1 karakter akhir parameter yang dipilih NOTE:BELOM DIUBAH
 void deleteButton() {
-  int n;
   switch (state_input) {
     case 2:
-      n = flowRatestr.length();
-      if (n > 0) {
-        lcd.setCursor(6 + n - 1, 1);
-        lcd.print(' ');
-        lcd.setCursor(6 + n - 1, 1);
-        flowRatestr.remove(n - 1);
+      if (flowRatestr > 0) {
+        flowRatestr = flowRatestr / 10;
         updateParameter();
       }
       break;
     case 3:
-      n = durationstr.length();
-      if (n > 0) {
-        lcd.setCursor(7 + n - 1, 3);
-        lcd.print(' ');
-        lcd.setCursor(7 + n - 1, 3);
-        durationstr.remove(n - 1);
+      if (durationstr > 0) {
+        durationstr = durationstr / 10;
         updateParameter();
       }
     case 4:
-      n = volumestr.length();
-      if (n > 0) {
-        lcd.setCursor(7 + n - 1, 3);
-        lcd.print(' ');
-        lcd.setCursor(7 + n - 1, 3);
-        volumestr.remove(n - 1);
+      if (volumestr > 0) {
+        volumestr = volumestr / 10;
         updateParameter();
       }
       break;
@@ -777,23 +824,23 @@ void saveParameter() {
     sequenceData.flowRate[seq] = 0;
   }
   else {
-    sequenceData.flowRate[seq] = flowRatestr.toInt();
+    sequenceData.flowRate[seq] = flowRatestr;
   }
   sequenceData.flowDir[seq] = flowDirstr;
   if (state_durationvolume == 0) {
-    sequenceData.duration[seq] = durationstr.toInt() * 1000;
+    sequenceData.duration[seq] = durationstr * 1000;
   }
   else {
-    sequenceData.duration[seq] = volumestr.toInt() * 60 * 1000 / (sequenceData.flowRate[seq]);
+    sequenceData.duration[seq] = volumestr * 60 * 1000 / (sequenceData.flowRate[seq]);
   }
   //sequenceData.volume[seq] = volumestr.toInt();
   seq++;
 
   pumpstr = 1;
-  flowRatestr = "";
+  flowRatestr = 0;
   flowDirstr = 0;
-  durationstr = "";
-  volumestr = "";
+  durationstr = 0;
+  volumestr = 0;
 }
 
 char getDirection(int dir) {
@@ -805,4 +852,10 @@ char getDirection(int dir) {
     dirChar = 'S';
   }
   return dirChar;
+}
+
+int addCharToInt(int x, char c) {
+  int result = 0;
+  result = x * 10 + c - '0';
+  return result;
 }
