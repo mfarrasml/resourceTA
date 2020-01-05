@@ -163,14 +163,14 @@ void TaskInterface(void *pvParameters __attribute__((unused))) {
               break;
             case 3:
               state_input = 5;
-              if (durationstr != "") {
+              if (durationstr != 0) {
                 saveParameter();
                 stateInput();
               }
               break;
             case 4:
               state_input = 5;
-              if (volumestr != "") {
+              if (volumestr != 0) {
                 saveParameter();
                 stateInput();
               }
@@ -820,7 +820,7 @@ void leftButton() {
 // menyimpan semua parameter untuk sekuens ke-seq
 void saveParameter() {
   sequenceData.pump[seq] = pumpstr;
-  if (flowRatestr == "") {
+  if (flowRatestr == 0) {
     sequenceData.flowRate[seq] = 0;
   }
   else {
