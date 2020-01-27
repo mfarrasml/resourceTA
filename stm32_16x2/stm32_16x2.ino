@@ -10,10 +10,12 @@
 #define DIR0 PA9            // pin led indikator arah mendorong/memompa
 #define DIR1 PA8            // pin led indikator arah menghisap
 #define PUMP_STEP PB3       // pin step driver untuk menjalankan pompa
-#define PUMP_DIR PB4        // pin untuk mengatur arah pompa
-#define PUMP_ENABLE_1 PB5   // pin enable pompa 1
-#define PUMP_ENABLE_2 PB8   // pin enable pompa 2
-
+#define PUMP_DIR PB4        // pin untuk mengatur arah pompa cairan
+#define PUMP1_ENABLE PB5   // pin enable pompa 1
+#define PUMP2_ENABLE PB8   // pin enable pompa 2
+#define PUMP3_PWM PB1       // pin input pompa 3 (input PWM)
+#define PUMP3_EN_1 PB10     // pin enable 1 pompa 3
+#define PUMP3_EN_2 PB11     // pin enable 2 pompa 3
 
 //Variables
 #define LCD_ADDRESS 0x27 // address I2C LCD
@@ -57,7 +59,7 @@ sequenceParameters sequenceData;
 //variabel untuk mengatur nyala atau tidaknya pompa
 boolean pump_start = false;
 
-double delay_time = 0;
+unsigned long delay_time = 0;
 
 // Men-set karakter yang diterima ketika keypad ditekan user
 char keypadKeys[ROWS][COLS] = {
@@ -119,8 +121,11 @@ void setup() {
   pinMode(DIR1, OUTPUT);
   pinMode(PUMP_STEP, OUTPUT);
   pinMode(PUMP_DIR, OUTPUT);
-  pinMode(PUMP_ENABLE_1, OUTPUT);
-  pinMode(PUMP_ENABLE_2, OUTPUT);
+  pinMode(PUMP1_ENABLE, OUTPUT);
+  pinMode(PUMP2_ENABLE, OUTPUT);
+  pinMode(PUMP3_PWM, PWM);
+  pinMode(PUMP3_EN_1, OUTPUT);
+  pinMode(PUMP3_EN_2, OUTPUT);
 
   turnOff();
 
@@ -404,11 +409,15 @@ void TaskPump(void *pvParameters __attribute__((unused))) {
   for (;;) {
     // menjalankan pompa jika menerima perintah pump_start = true
     while (pump_start) {
-      // Menjalankan pompa
-      digitalWrite(PUMP_STEP, HIGH);
-      delayMicroseconds(delay_time);
-      digitalWrite(PUMP_STEP, LOW);
-      delayMicroseconds(delay_time);
+      if ((sequenceData.pump[i] == 1) || (sequenceData.pump[i] == 2)) {// Menjalankan pompa
+        digitalWrite(PUMP_STEP, HIGH);
+        delayMicroseconds(delay_time);
+        digitalWrite(PUMP_STEP, LOW);
+        delayMicroseconds(delay_time);
+      }
+      else if (sequenceData.pump[i] == 3) {
+        analogWrite(PUMP3_PWM,115);
+      }
     }
 
     //TODO: masukin fungsi turnOff() disini kalo bocor
@@ -593,14 +602,14 @@ void informationInterface() {
       digitalWrite(PUMP2, LOW);
       digitalWrite(PUMP3, LOW);
 
-      digitalWrite(PUMP_ENABLE_1, LOW);
+      digitalWrite(PUMP1_ENABLE, LOW);
       break;
     case 2:
       digitalWrite(PUMP1, LOW);
       digitalWrite(PUMP2, HIGH);
       digitalWrite(PUMP3, LOW);
 
-      digitalWrite(PUMP_ENABLE_2, LOW);
+      digitalWrite(PUMP2_ENABLE, LOW);
       break;
     case 3:
       digitalWrite(PUMP1, LOW);
@@ -618,12 +627,16 @@ void informationInterface() {
       digitalWrite(DIR1, LOW);
       
       digitalWrite(PUMP_DIR, LOW);
+      digitalWrite(PUMP3_EN_1, LOW);
+      digitalWrite(PUMP3_EN_2, HIGH);
       break;
     case 1:
       digitalWrite(DIR0, LOW);
       digitalWrite(DIR1, HIGH);
       
       digitalWrite(PUMP_DIR, HIGH);
+      digitalWrite(PUMP3_EN_1, HIGH);
+      digitalWrite(PUMP3_EN_2, LOW);
       break;
   }
 
@@ -653,8 +666,11 @@ void turnOff() {
 
   //mematikan pompa
   digitalWrite(PUMP_STEP, LOW);
-  digitalWrite(PUMP_ENABLE_1, HIGH);
-  digitalWrite(PUMP_ENABLE_2, HIGH);
+  digitalWrite(PUMP1_ENABLE, HIGH);
+  digitalWrite(PUMP2_ENABLE, HIGH);
+  analogWrite(PUMP3_PWM,0);
+  digitalWrite(PUMP3_EN_1, LOW);
+  digitalWrite(PUMP3_EN_2, LOW);
   //TODO: disable pompa 3
 }
 
