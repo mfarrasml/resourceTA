@@ -108,7 +108,7 @@ byte colPins[COLS] = {PA4, PA5, PA6, PA7};  // Pin-pin kolom untuk keypad matrix
 
 Keypad customKeypad = Keypad(makeKeymap(keypadKeys), rowPins, colPins, ROWS, COLS); //inisialisasi keypad matrix 4x4
 
-LiquidCrystal_I2C lcd(LCD_ADDRESS, 16, 2); //inisialisasi I2C LCD
+LiquidCrystal_I2C lcd(LCD_ADDRESS, 20, 4); //inisialisasi I2C LCD
 
 
 void setup() {
@@ -254,6 +254,7 @@ void loop() {
             else {
               state_input_final = 3;
             }
+            stateInputFinal();
             break;
           default:
             break;
@@ -268,6 +269,7 @@ void loop() {
             else {
               state_input_final = 0;
             }
+            stateInputFinal();
             break;
           default:
             break;
@@ -343,11 +345,11 @@ void loop() {
             stateInput();
             break;
           case 5:
-            if (state_input_final > 0) {
-              state_input_final--;
+            if (state_input_final == 3) {
+              state_input_final = 0;
             }
             else {
-              state_input_final = 2;
+              state_input_final = 3;
             }
             stateInputFinal();
             break;
@@ -498,25 +500,23 @@ void mainInterface() {
   sprintf(buffer, "Select Mode");
   lcd.print(buffer);
 
-  lcd.setCursor(0, 2);
-  lcd.print("     SEQ    CAL");
   stateMain();
 }
 
 // Fungsi untuk mengubah interface utama berdasarkan sub-state nya
 void stateMain() {
-  lcd.setCursor(0, 1);
+  lcd.setCursor(0, 2);
   lcd.print("     SEQ    CAL");
   switch (state_main) {
     case 0:
-      lcd.setCursor(4, 1);
+      lcd.setCursor(4, 2);
       lcd.write(1);
-      lcd.setCursor(4, 1);
+      lcd.setCursor(4, 2);
       break;
     case 1:
-      lcd.setCursor(11, 1);
+      lcd.setCursor(11, 2);
       lcd.write(1);
-      lcd.setCursor(11, 1);
+      lcd.setCursor(11, 2);
       break;
   }
 }
@@ -595,8 +595,12 @@ void stateInput() {
       lcd.setCursor(5, 0);
       sprintf(buffer, "Sequence %d", seq); lcd.print(buffer);
       lcd.setCursor(0, 1);
-      lcd.print("   DEL  ADD  STRT");
-      lcd.setCursor(0, 1);
+      lcd.print("    ADD    START");
+      lcd.setCursor(0, 2);
+      lcd.print("    DEL");
+      lcd.setCursor(0, 3);
+      lcd.print("    REVIEW");
+      lcd.setCursor(3, 1);
       lcd.write(1);
       break;
     default:
@@ -650,7 +654,7 @@ void stateInputFinal() {
   lcd.print("    ADD    START");
   lcd.setCursor(0, 2);
   lcd.print("    DEL");
-  lcd.setCursor(0, 2);
+  lcd.setCursor(0, 3);
   lcd.print("    REVIEW");
 
 
@@ -697,10 +701,10 @@ void informationInterface() {
   lcd.blink_off();
 
   if (sequenceData.DOVSel[i] == 0) {
-    durationms = 1000 * sequenceData.DOVSel[i];
+    durationms = 1000 * sequenceData.DOV[i];
   }
   else { // NOTE: untuk sementara, untuk sekuens berdasarkan volume, batas pengalirannya masih berdasarkan durasi dulu.
-    durationms = sequenceData.DOVSel[i] * 1000 * 60 / sequenceData.flowRate[i];
+    durationms = sequenceData.DOV[i] * 1000 * 60 / sequenceData.flowRate[i];
   }
 
   if (state_main == 0) {
@@ -735,7 +739,7 @@ void informationInterface() {
     lcd.setCursor(0, 1);
     lcd.print("  FLOW:       uL/m");
     lcd.setCursor(8, 1);
-    lcd.print(durationms);
+    lcd.print(sequenceData.flowRate[i]);
     switch (state_info) {
       case 0:
         lcd.setCursor(4, 0);
@@ -976,14 +980,16 @@ void showSequenceN(int n) {
 
   lcd.clear();
   lcd.setCursor(0, 0);
-  sprintf(buffer, "      SEQ %d", n);
+  sprintf(buffer, "      SEQ %d", n+1);
   lcd.print(buffer);
 
   lcd.setCursor(0, 1);
   sprintf(buffer, "  PUMP/DIR :  %d / %c", sequenceData.pump[n], getDirChar(sequenceData.flowDir[n]));
+  lcd.print(buffer);
 
   lcd.setCursor(0, 2);
   sprintf(buffer, "  FLOW :  %d", sequenceData.flowRate[n]);
+  lcd.print(buffer);
 
   //TODO: jika inputnya volume maka yang ditunjukkan volume, jika yg diinput durasi maka yang ditunjukkan durasi.
   //Bikin parameter yang disimpen dari inputnya jadi gitu dulu baru benerin ini.
@@ -991,6 +997,7 @@ void showSequenceN(int n) {
 
   lcd.setCursor(0, 3);
   sprintf(buffer, "  DUR :  %d", sequenceData.DOV[n]);
+  lcd.print(buffer);
 
   //menunjukkan panah
 
