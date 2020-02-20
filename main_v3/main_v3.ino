@@ -1,7 +1,7 @@
 // Program      : main_v3.ino
 // Date Created : 16/02/2020
 // Description  : Program utama untuk pompa mikrofluida pada mikrokontroler stm32
-// Last Updated : 16/02/2020
+// Last Updated : 20/02/2020 -Farras
 
 #include<Wire.h>
 #include<LiquidCrystal_I2C.h>
@@ -36,12 +36,15 @@ int state_input = 0;            //sub-state saat sedang menginput; 0 = input pom
 int state_info = 0;             //sub-state interface informasi pengaliran
 int state_input_final = 0;      //sub-state pilihan pada interface input setelah mengisi semua parameter;
 // 0 = hapus sekuens, 1 = tambah sekuens, 2 = mulai sekuens
+int state_input_review = 0;     //sub-state pada bagian review sekuens.
+// 0 = ok/kembali, 1 = edit, 2 = delete, 3 = review sekuens.
 int state_main = 0;             //sub-state interface utama; 0 = mode input sekuens, 1 = mode kalibrasi
 // (jalanin 1 pompa saja)
 int durationvolume = 0;         //(Bukan state, hanya menandakan input user durasi/volume)sub-state durasi/volume
 // 0 jika parameter yang dipilih durasi, 1 jika dipilih volume
 int pause_resume = 0;           // pada state pengaliran, menunjukkan tombol yang tersedia pause atau resume
 // 0 = pause, 1 = resume;
+
 
 unsigned long durationms = 0; //durasi sekuens dalam ms
 unsigned long startTime = 0; //waktu dimulainya sequence
@@ -226,8 +229,8 @@ void loop() {
             }
             else if (state_input_final == 2) {
               // mereview/menampilkan sekuens-sekuense pengaliran yang telah diinput oleh pengguna
-              state_input = 6; 
-              showSequenceN(0);
+              state_input = 6;
+              stateInput();
             }
             else if (state_input_final == 3) {
               // mulai sequence pengaliran
@@ -238,6 +241,17 @@ void loop() {
               }
             }
             break;
+          case 6:
+            if (state_input_review == 0) {
+              state_input = 5;
+              stateInput();
+            }
+            else if (state_input_review == 1) {
+              //TODO: edit sequence
+            }
+            else if (state_input_review == 2) {
+              //TODO: delete sequence
+            }
           default:
             break;
         }
@@ -256,6 +270,15 @@ void loop() {
             }
             stateInputFinal();
             break;
+          case 6:
+            if (state_input_review < 3) {
+              state_input_review = 3;
+            }
+            else {
+              state_input_review = 0;
+            }
+            stateInputReview();
+            break;
           default:
             break;
         }
@@ -270,6 +293,15 @@ void loop() {
               state_input_final = 0;
             }
             stateInputFinal();
+            break;
+          case 6:
+            if (state_input_review < 3) {
+              state_input_review = 3;
+            }
+            else {
+              state_input_review = 0;
+            }
+            stateInputReview();
             break;
           default:
             break;
@@ -312,6 +344,20 @@ void loop() {
             }
             stateInputFinal();
             break;
+          case 6:
+            if (state_input_review == 0) {
+              state_input_review = 2;
+            }
+            else if (state_input_review < 3) {
+              state_input_review--;
+            }
+            else {
+              if (i < seq - 1) {
+                i++;
+              }
+            }
+            stateInputReview();
+            break;
           default:
             break;
         }
@@ -352,6 +398,20 @@ void loop() {
               state_input_final = 3;
             }
             stateInputFinal();
+            break;
+          case 6:
+            if (state_input_review == 2) {
+              state_input_review = 0;
+            }
+            else if (state_input_review < 2) {
+              state_input_review ++;
+            }
+            else { //state_input_review = 3
+              if (i > 0) {
+                i--;
+              }
+            }
+            stateInputReview();
             break;
           default:
             break;
@@ -603,6 +663,15 @@ void stateInput() {
       lcd.setCursor(3, 1);
       lcd.write(1);
       break;
+    case 6:
+      state_input_review = 0;
+      i = 0;
+      lcd.noCursor();
+      lcd.blink_off();
+      lcd.setCursor(5, 0);
+      sprintf(buffer, "Sequence %d", seq); lcd.print(buffer);
+      showSequenceNReview(i);
+      stateInputReview();
     default:
       break;
   }
@@ -690,6 +759,90 @@ void timeOrVolumeSelect() {
     lcd.setCursor(10, 1);
     lcd.print(volumestr);
   }
+}
+
+// mengatur perubahan pada state/halaman review sekuens
+// 0: ok/kembali, 1: edit sekunes, 2: hapus sekuens, 3: review sekuens
+void stateInputReview() {
+  char buffer[20];
+
+  switch (state_input_review) {
+    case 0:
+      //hapus panah pada bagian data sekuens
+      lcd.setCursor(0, 2);
+      lcd.print(' ');
+      lcd.setCursor(19, 2);
+      lcd.print(' ');
+
+      lcd.setCursor(19, 0);
+      lcd.write(1);
+      break;
+    case 1:
+      //hapus panah pada bagian data sekuens
+      lcd.setCursor(0, 2);
+      lcd.print(' ');
+      lcd.setCursor(19, 2);
+      lcd.print(' ');
+
+      lcd.setCursor(14, 0);
+      lcd.write(1);
+      break;
+    case 2:
+      //hapus panah pada bagian data sekuens
+      lcd.setCursor(0, 2);
+      lcd.print(' ');
+      lcd.setCursor(19, 2);
+      lcd.print(' ');
+
+      lcd.setCursor(9, 0);
+      lcd.write(1);
+      break;
+    case 3:
+      //menampilkan data-data parameter sekuens ke-i
+      showSequenceNReview(i)
+
+      //menunjukkan panah
+      if (i > 0) {
+        lcd.setCursor(0, 2);
+        lcd.write(0);
+      }
+      if (i < seq - 1) {
+        lcd.setCursor(19, 2);
+        lcd.write(1);
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+// menampilkan semua sequence yang telah diinput oleh pengguna
+void showSequenceNReview(int n) {
+  char buffer[20];
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  sprintf(buffer, "SEQ%d   DEL  EDT  OK", n + 1);
+  lcd.print(buffer);
+
+  lcd.setCursor(0, 1);
+  sprintf(buffer, "  PUMP/DIR: %d/%c  ", sequenceData.pump[n], getDirChar(sequenceData.flowDir[n]));
+  lcd.print(buffer);
+
+  lcd.setCursor(0, 2);
+  lcd.print("  FLOW:      ");
+  lcd.setCursor(8, 2);
+  lcd.print(sequenceData.flowRate[n]);
+
+  //TODO: jika inputnya volume maka yang ditunjukkan volume, jika yg diinput durasi maka yang ditunjukkan durasi.
+  //Bikin parameter yang disimpen dari inputnya jadi gitu dulu baru benerin ini.
+  // Untuk sementara nunjukin durasi dulu
+
+  lcd.setCursor(0, 3);
+  lcd.print("  DUR :      ");
+  lcd.setCursor();
+  lcd.print(sequenceData.DOV[n]);
+
 }
 
 //Inisilisasi awal interface informasi
@@ -891,7 +1044,6 @@ void pumpResume() {
       analogWrite(PUMP3_PWM, map(sequenceData.flowRate[i], 0, 1000, 0, 255));
       break;
   }
-
 }
 
 //update nilai parameter input
@@ -972,46 +1124,6 @@ void parameterInput(char c) {
       }
       break;
   }
-}
-
-// menampilkan semua sequence yang telah diinput oleh pengguna
-void showSequenceN(int n) {
-  char buffer[20];
-
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  sprintf(buffer, "      SEQ %d", n+1);
-  lcd.print(buffer);
-
-  lcd.setCursor(0, 1);
-  sprintf(buffer, "  PUMP/DIR :  %d / %c", sequenceData.pump[n], getDirChar(sequenceData.flowDir[n]));
-  lcd.print(buffer);
-
-  lcd.setCursor(0, 2);
-  sprintf(buffer, "  FLOW :  %d", sequenceData.flowRate[n]);
-  lcd.print(buffer);
-
-  //TODO: jika inputnya volume maka yang ditunjukkan volume, jika yg diinput durasi maka yang ditunjukkan durasi.
-  //Bikin parameter yang disimpen dari inputnya jadi gitu dulu baru benerin ini.
-  // Untuk sementara nunjukin durasi dulu
-
-  lcd.setCursor(0, 3);
-  sprintf(buffer, "  DUR :  %d", sequenceData.DOV[n]);
-  lcd.print(buffer);
-
-  //menunjukkan panah
-
-  if (n > 0) {
-    lcd.setCursor(0, 2);
-    lcd.write(0);
-  }
-  if (n < seq - 1) {
-    lcd.setCursor(19, 2);
-    lcd.write(1);
-  }
-
-
-
 }
 
 // menghapus 1 karakter akhir parameter yang dipilih
