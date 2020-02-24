@@ -257,7 +257,25 @@ void loop() {
         }
       }
       else if (customKey == '*') { // tombol hapus
-        deleteButton();
+        switch (state_input) {
+          case 2:
+            if (flowRatestr > 0) {
+              flowRatestr = flowRatestr / 10;
+              updateParameter();
+            }
+            break;
+          case 3:
+            if (durationstr > 0) {
+              durationstr = durationstr / 10;
+              updateParameter();
+            }
+          case 4:
+            if (volumestr > 0) {
+              volumestr = volumestr / 10;
+              updateParameter();
+            }
+            break;
+        }
       }
       else if (customKey == 'A') { // tombol panah atas
         switch (state_input) {
@@ -351,9 +369,12 @@ void loop() {
             else if (state_input_review < 3) {
               state_input_review--;
             }
-            else {
+            else { //state_input_review = 3
               if (i < seq - 1) {
                 i++;
+              }
+              else {
+                i = 0;
               }
             }
             stateInputReview();
@@ -410,6 +431,9 @@ void loop() {
               if (i > 0) {
                 i--;
               }
+              else {
+                i = seq - 1;
+              }
             }
             stateInputReview();
             break;
@@ -443,62 +467,109 @@ void loop() {
   }
   else if (state == 2) { //state saat pompa berjalan, informasi pengaliran ditampilkan kepada user
     if (state_main == 0) { // mode pengaliran sekuensial
-      if ((customKey == 'C') || (customKey == 'D')) {
-        if (state_info == 0) {
-          state_info = 1;
-          lcd.setCursor(5, 0);
-          sprintf(buffer, "Sequence %d", i + 1);
-          lcd.print(buffer);
-          lcd.setCursor(0, 1);
-          lcd.print("  ");
-          lcd.write(0);
-          lcd.print("TIME:       s   ");
-          lcd.write(1);
-          lcd.setCursor(9, 1);
-          lcd.print(timeLeft);
-        }
-        else if (state_info == 1) {
-          state_info = 0;
-          lcd.setCursor(3, 0);
-          sprintf(buffer, "Sequence %d", i + 1);
-          lcd.print(buffer);
-          lcd.setCursor(0, 1);
-          lcd.print("  ");
-          lcd.write(0);
-          lcd.print("FLOW:       uL/m");
-          lcd.write(1);
-          lcd.setCursor(9, 1);
-          lcd.print(sequenceData.flowRate[i]);
-        }
-      }
-      if (timeLeftms > 0) { // count sisa waktu pengaliran
-        timeLeftms = (durationms -  (millis() - startTime));
-        timeLeft = timeLeftms / 1000;
-        //update durasi sisa
-        if (timeLeft != timeLeftLast) {
-          if (state_info == 1) {
-            lcd.setCursor(9, 1);
-            lcd.print("      s ");
+      /*
+        if ((customKey == 'C') || (customKey == 'D')) {
+          if (state_info == 0) {
+            state_info = 1;
+            lcd.setCursor(5, 0);
+            sprintf(buffer, "Sequence %d", i + 1);
+            lcd.print(buffer);
+            lcd.setCursor(0, 1);
+            lcd.print("  ");
+            lcd.write(0);
+            lcd.print("TIME:       s   ");
+            lcd.write(1);
             lcd.setCursor(9, 1);
             lcd.print(timeLeft);
           }
-          timeLeftLast = timeLeft;
+          else if (state_info == 1) {
+            state_info = 0;
+            lcd.setCursor(5, 0);
+            sprintf(buffer, "Sequence %d", i + 1);
+            lcd.print(buffer);
+            lcd.setCursor(0, 1);
+            lcd.print("  ");
+            lcd.write(0);
+            lcd.print("FLOW:       uL/m");
+            lcd.write(1);
+            lcd.setCursor(9, 1);
+            lcd.print(sequenceData.flowRate[i]);
+          }
+        }
+      */
+      if (pause_resume == 0) {
+        if (timeLeftms > 0) { // count sisa waktu pengaliran
+          timeLeftms = (durationms -  (millis() - startTime));
+          timeLeft = timeLeftms / 1000;
+          //update durasi sisa
+          if (timeLeft != timeLeftLast) {
+            lcd.setCursor(8, 2);
+            lcd.print("      s ");
+            lcd.setCursor(8, 2);
+            lcd.print(timeLeft);
+            timeLeftLast = timeLeft;
+          }
+        }
+        else { // durasi pengaliran selesai
+          Timer1.pause(); //menghentikan timer, sehingga pompa berhenti
+          Timer1.refresh();
+          pumpOff();
+          i++;
+          if (i >= seq) { // pengaliran selesai, kembali ke interface input sekuens
+            seq = 0;
+            i = 0;
+            state = 0;
+            state_input = 0;
+            mainInterface();
+          }
+          else { // sekuens selanjutnya
+            informationInterface();
+          }
         }
       }
-      else { // durasi pengaliran selesai
-        Timer1.pause(); //menghentikan timer, sehingga pompa berhenti
-        Timer1.refresh();
-        pumpOff();
-        i++;
-        if (i >= seq) { // pengaliran selesai, kembali ke interface input sekuens
-          seq = 0;
-          i = 0;
-          state = 0;
-          state_input = 0;
-          mainInterface();
+
+      if (customKey == '#') {
+        switch (state_info) {
+          case 0: // pause/resume aliran pompa
+            if (pause_resume == 0) {
+              pause_resume = 1;
+              lcd.setCursor(5, 3);
+              lcd.print("RES ");
+              pumpPause();
+            }
+            else { //pause_resume = 1
+              pause_resume = 0;
+              lcd.setCursor(5, 3);
+              lcd.print("STOP");
+              startTime = millis() - (durationms - timeLeftms);
+              pumpResume();
+            }
+            break;
+          case 1: // aliran pompa dihentikan, kembali ke halaman utama
+            pumpOff();
+            pause_resume = 0;
+            seq = 0;
+            i = 0;
+            state = 0;
+            state_input = 0;
+            mainInterface();
+            break;
         }
-        else { // sekuens selanjutnya
-          informationInterface();
+      }
+      else if ((customKey == 'C') || (customKey == 'D')) {
+        if (state_info == 0) {
+          state_info = 1;
+          lcd.setCursor(4, 3);
+          lcd.print(' ');
+          lcd.setCursor(11, 3);
+          lcd.write(1);
+        }
+        else {
+          state_info = 0;
+          lcd.setCursor(11, 3);
+          lcd.print(' ');
+          lcd.setCursor(4, 3);
+          lcd.write(1);
         }
       }
     }
@@ -668,8 +739,9 @@ void stateInput() {
       i = 0;
       lcd.noCursor();
       lcd.blink_off();
-      lcd.setCursor(5, 0);
-      sprintf(buffer, "Sequence %d", seq); lcd.print(buffer);
+      lcd.setCursor(0, 0);
+      sprintf(buffer, "SEQ%d   DEL  EDT  OK", i + 1);
+      lcd.print(buffer);
       showSequenceNReview(i);
       stateInputReview();
     default:
@@ -766,6 +838,10 @@ void timeOrVolumeSelect() {
 void stateInputReview() {
   char buffer[20];
 
+  lcd.setCursor(0, 0);
+  sprintf(buffer, "SEQ%d   DEL  EDT  OK", i + 1);
+  lcd.print(buffer);
+
   switch (state_input_review) {
     case 0:
       //hapus panah pada bagian data sekuens
@@ -774,7 +850,7 @@ void stateInputReview() {
       lcd.setCursor(19, 2);
       lcd.print(' ');
 
-      lcd.setCursor(19, 0);
+      lcd.setCursor(16, 0);
       lcd.write(1);
       break;
     case 1:
@@ -784,7 +860,7 @@ void stateInputReview() {
       lcd.setCursor(19, 2);
       lcd.print(' ');
 
-      lcd.setCursor(14, 0);
+      lcd.setCursor(11, 0);
       lcd.write(1);
       break;
     case 2:
@@ -794,22 +870,17 @@ void stateInputReview() {
       lcd.setCursor(19, 2);
       lcd.print(' ');
 
-      lcd.setCursor(9, 0);
+      lcd.setCursor(6, 0);
       lcd.write(1);
       break;
     case 3:
-      //menampilkan data-data parameter sekuens ke-i
-      showSequenceNReview(i)
-
+      //menampilkan parameter pengaliran sekuens ke-n
+      showSequenceNReview(i);
       //menunjukkan panah
-      if (i > 0) {
-        lcd.setCursor(0, 2);
-        lcd.write(0);
-      }
-      if (i < seq - 1) {
-        lcd.setCursor(19, 2);
-        lcd.write(1);
-      }
+      lcd.setCursor(0, 2);
+      lcd.write(0);
+      lcd.setCursor(19, 2);
+      lcd.write(1);
       break;
     default:
       break;
@@ -819,11 +890,6 @@ void stateInputReview() {
 // menampilkan semua sequence yang telah diinput oleh pengguna
 void showSequenceNReview(int n) {
   char buffer[20];
-
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  sprintf(buffer, "SEQ%d   DEL  EDT  OK", n + 1);
-  lcd.print(buffer);
 
   lcd.setCursor(0, 1);
   sprintf(buffer, "  PUMP/DIR: %d/%c  ", sequenceData.pump[n], getDirChar(sequenceData.flowDir[n]));
@@ -840,9 +906,8 @@ void showSequenceNReview(int n) {
 
   lcd.setCursor(0, 3);
   lcd.print("  DUR :      ");
-  lcd.setCursor();
+  lcd.setCursor(8, 3);
   lcd.print(sequenceData.DOV[n]);
-
 }
 
 //Inisilisasi awal interface informasi
@@ -861,28 +926,33 @@ void informationInterface() {
   }
 
   if (state_main == 0) {
+    lcd.setCursor(5, 0);
+    sprintf(buffer, "Sequence %d", i + 1);
+    lcd.print(buffer);
+
+    // menampilkan flowrate sekuens yang sedang berlangsung
+    lcd.setCursor(2, 1);
+    lcd.print("FLOW:       uL/m");
+    lcd.setCursor(8, 1);
+    lcd.print(sequenceData.flowRate[i]);
+
+    //menampilkan durasi pengaliran yang tersisa
+    lcd.setCursor(2, 2);
+    lcd.print("TIME:       s   ");
+    lcd.setCursor(8, 2);
+    lcd.print(durationms / 1000);
+
+    // menampilkan pilihan untuk menghentikan/mem-pause sekuens pengaliran
+    lcd.setCursor(0, 3);
+    lcd.print("     STOP   END");
     switch (state_info) {
       case 0:
-        lcd.setCursor(5, 0);
-        sprintf(buffer, "Sequence %d", i + 1);
-        lcd.print(buffer);
-        lcd.setCursor(2, 1);
-        lcd.write(0);
-        lcd.print("FLOW:       uL/m");
+        lcd.setCursor(4, 3);
         lcd.write(1);
-        lcd.setCursor(9, 1);
-        lcd.print(sequenceData.flowRate[i]);
         break;
       case 1:
-        lcd.setCursor(3, 0);
-        sprintf(buffer, "Sequence %d", i + 1);
-        lcd.print(buffer);
-        lcd.setCursor(2, 1);
-        lcd.write(0);
-        lcd.print("TIME:       s   ");
+        lcd.setCursor(11, 3);
         lcd.write(1);
-        lcd.setCursor(9, 1);
-        lcd.print(durationms / 1000);
         break;
     }
   }
@@ -1053,7 +1123,7 @@ void updateParameter() {
       lcd.setCursor(8, 1);
       if (flowRatestr == 0) {
         lcd.print('0');
-        lcd.setCursor(6, 1);
+        lcd.setCursor(8, 1);
       }
       else {
         lcd.print("     ");
@@ -1126,31 +1196,6 @@ void parameterInput(char c) {
   }
 }
 
-// menghapus 1 karakter akhir parameter yang dipilih
-void deleteButton() {
-  switch (state_input) {
-    case 2:
-      if (flowRatestr > 0) {
-        flowRatestr = flowRatestr / 10;
-        updateParameter();
-      }
-      break;
-    case 3:
-      if (durationstr > 0) {
-        durationstr = durationstr / 10;
-        updateParameter();
-      }
-    case 4:
-      if (volumestr > 0) {
-        volumestr = volumestr / 10;
-        updateParameter();
-      }
-      break;
-  }
-}
-
-
-
 // menyimpan semua parameter untuk sekuens ke-seq
 void saveParameter() {
   sequenceData.pump[seq] = pumpstr;
@@ -1190,7 +1235,7 @@ int addCharToInt(int x, char c) {
 }
 
 char getDirChar(int dir) {
-  if (dir = 1) {
+  if (dir == 1) {
     return 'S';
   }
   else { //jika dir = 0, maka arah pompa mendorong/pumping 'P'
