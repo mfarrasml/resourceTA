@@ -7,7 +7,7 @@
 #include<LiquidCrystal_I2C.h>
 #include<Keypad.h>
 
-//PINS
+// PINS
 #define PUMP1 PB15          // pin led indikator pompa 1
 #define PUMP2 PB14          // pin led indikator pompa 2
 #define PUMP3 PB13          // pin led indikator pompa 3
@@ -44,6 +44,8 @@ int durationvolume = 0;         //(Bukan state, hanya menandakan input user dura
 // 0 jika parameter yang dipilih durasi, 1 jika dipilih volume
 int pause_resume = 0;           // pada state pengaliran, menunjukkan tombol yang tersedia pause atau resume
 // 0 = pause, 1 = resume;
+int editting = 0;               // editting = 0 untuk pengisian sekuens pada interface input,
+// editting = 1 untuk editting data sekuns pada interface input.
 
 
 unsigned long durationms = 0; //durasi sekuens dalam ms
@@ -194,7 +196,8 @@ void loop() {
               stateInput();
             }
             else {
-              saveParameter();
+              saveParameter(seq);
+              seq++;
               i = 0;
               state = 2;
               informationInterface();
@@ -202,15 +205,31 @@ void loop() {
             break;
           case 3:
             if (durationstr != 0) {
-              state_input = 5;
-              saveParameter();
+              if (editting == 0) {
+                state_input = 5;
+                saveParameter(seq);
+                seq++;
+              }
+              else {
+                state_input = 6;
+                saveParameter(i);
+                editting = 0;
+              }
               stateInput();
             }
             break;
           case 4:
             if (volumestr != 0) {
-              state_input = 5;
-              saveParameter();
+              if (editting == 0) {
+                state_input = 5;
+                saveParameter(seq);
+                seq++;
+              }
+              else {
+                state_input = 6;
+                saveParameter(i);
+                editting = 0;
+              }
               stateInput();
             }
             break;
@@ -230,6 +249,7 @@ void loop() {
             else if (state_input_final == 2) {
               // mereview/menampilkan sekuens-sekuense pengaliran yang telah diinput oleh pengguna
               state_input = 6;
+              i = 0; // inisilisasi sekuens yang akan ditunjukkan
               stateInput();
             }
             else if (state_input_final == 3) {
@@ -248,9 +268,15 @@ void loop() {
             }
             else if (state_input_review == 1) {
               //TODO: edit sequence
+              editting = 1;
+              state_input = 0;
+              stateInput();
             }
             else if (state_input_review == 2) {
               //TODO: delete sequence
+              deleteSequenceN(i);
+              state_input_review = 3;
+              stateInputReview();
             }
           default:
             break;
@@ -663,7 +689,12 @@ void stateInput() {
       lcd.cursor();
       lcd.blink_on();
       lcd.setCursor(5, 0);
-      sprintf(buffer, "Sequence %d", seq + 1);
+      if (editting == 0) {
+        sprintf(buffer, "Sequence %d", seq + 1);
+      }
+      else {
+        sprintf(buffer, "Sequence %d", i + 1);
+      }
       lcd.print(buffer);
       lcd.setCursor(0, 1);
       lcd.print("   PUMP: ");
@@ -675,7 +706,12 @@ void stateInput() {
       lcd.cursor();
       lcd.blink_on();
       lcd.setCursor(5, 0);
-      sprintf(buffer, "Sequence %d", seq + 1);
+      if (editting == 0) {
+        sprintf(buffer, "Sequence %d", seq + 1);
+      }
+      else {
+        sprintf(buffer, "Sequence %d", i + 1);
+      }
       lcd.print(buffer);
       lcd.setCursor(0, 1);
       lcd.print("   DIR : ");
@@ -687,7 +723,12 @@ void stateInput() {
       lcd.cursor();
       lcd.blink_on();
       lcd.setCursor(5, 0);
-      sprintf(buffer, "Sequence %d", seq + 1);
+      if (editting == 0) {
+        sprintf(buffer, "Sequence %d", seq + 1);
+      }
+      else {
+        sprintf(buffer, "Sequence %d", i + 1);
+      }
       lcd.print(buffer);
       lcd.setCursor(0, 1);
       lcd.print("  FLOW: 0     uL/m");
@@ -698,33 +739,50 @@ void stateInput() {
       lcd.cursor();
       lcd.blink_on();
       lcd.setCursor(5, 0);
-      sprintf(buffer, "Sequence %d", seq + 1);
+      if (editting == 0) {
+        sprintf(buffer, "Sequence %d", seq + 1);
+      }
+      else {
+        sprintf(buffer, "Sequence %d", i + 1);
+      }
       lcd.print(buffer);
       lcd.setCursor(2, 1);
       lcd.write(0);
       lcd.print("TIME: 0     s ");
       lcd.write(1);
       lcd.setCursor(9, 1);
+      if (durationstr > 0) {
+        lcd.print(durationstr);
+      }
       break;
     case 4:
       durationvolume = 1;
       lcd.cursor();
       lcd.blink_on();
       lcd.setCursor(5, 0);
-      sprintf(buffer, "Sequence %d", seq + 1);
+      if (editting == 0) {
+        sprintf(buffer, "Sequence %d", seq + 1);
+      }
+      else {
+        sprintf(buffer, "Sequence %d", i + 1);
+      }
       lcd.print(buffer);
       lcd.setCursor(2, 1);
       lcd.write(0);
       lcd.print("VOL : 0     uL");
       lcd.write(1);
       lcd.setCursor(9, 1);
+      if (volumestr > 0) {
+        lcd.print(volumestr);
+      }
       break;
     case 5:
       state_input_final = 0;
       lcd.noCursor();
       lcd.blink_off();
       lcd.setCursor(5, 0);
-      sprintf(buffer, "Sequence %d", seq); lcd.print(buffer);
+      sprintf(buffer, "Sequence %d", seq); 
+      lcd.print(buffer);
       lcd.setCursor(0, 1);
       lcd.print("    ADD    START");
       lcd.setCursor(0, 2);
@@ -736,7 +794,6 @@ void stateInput() {
       break;
     case 6:
       state_input_review = 0;
-      i = 0;
       lcd.noCursor();
       lcd.blink_off();
       lcd.setCursor(0, 0);
@@ -908,6 +965,19 @@ void showSequenceNReview(int n) {
   lcd.print("  DUR :      ");
   lcd.setCursor(8, 3);
   lcd.print(sequenceData.DOV[n]);
+}
+
+void deleteSequenceN(int n) {
+  if (n >= 0) {
+    for (int i = n; i < seq - 1; i++) {
+      sequenceData.pump[i] = sequenceData.pump[i + 1];
+      sequenceData.flowRate[i] = sequenceData.flowRate[i + 1];
+      sequenceData.flowDir[i] = sequenceData.flowDir[i + 1];
+      sequenceData.DOV[i] = sequenceData.DOV[i + 1];
+      sequenceData.DOVSel[i] = sequenceData.DOVSel[i + 1];
+    }
+    seq--;
+  }
 }
 
 //Inisilisasi awal interface informasi
@@ -1197,27 +1267,26 @@ void parameterInput(char c) {
 }
 
 // menyimpan semua parameter untuk sekuens ke-seq
-void saveParameter() {
-  sequenceData.pump[seq] = pumpstr;
+void saveParameter(int n) {
+  sequenceData.pump[n] = pumpstr;
   if (flowRatestr == 0) {
-    sequenceData.flowRate[seq] = 0;
+    sequenceData.flowRate[n] = 0;
   }
   else {
-    sequenceData.flowRate[seq] = flowRatestr;
+    sequenceData.flowRate[n] = flowRatestr;
   }
 
-  sequenceData.flowDir[seq] = flowDirstr;
+  sequenceData.flowDir[n] = flowDirstr;
 
   // durasi, volume, dan pertambahan sekuens hanya diperhatikan pada mode pengaliran sekuensial
   if (state_main == 0) {
-    sequenceData.DOVSel[seq] = durationvolume;
+    sequenceData.DOVSel[n] = durationvolume;
     if (durationvolume == 0) {
-      sequenceData.DOV[seq] = durationstr;
+      sequenceData.DOV[n] = durationstr;
     }
     else {
-      sequenceData.DOV[seq] = volumestr;
+      sequenceData.DOV[n] = volumestr;
     }
-    seq++;
   }
 
   // reset parameter-parameter sementara
