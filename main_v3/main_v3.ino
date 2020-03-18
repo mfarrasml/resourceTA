@@ -108,8 +108,8 @@ byte rightArrow[] = {
   B00000
 };
 
-byte rowPins[ROWS] = {PA0, PA1, PA2, PA3};  // Pin-pin baris untuk keypad matrix 4x4
-byte colPins[COLS] = {PA4, PA5, PA6, PA7};  // Pin-pin kolom untuk keypad matrix 4x4
+byte rowPins[ROWS] = {PA4, PA5, PA6, PA7};  // Pin-pin baris untuk keypad matrix 4x4
+byte colPins[COLS] = {PA0, PA1, PA2, PA3};  // Pin-pin kolom untuk keypad matrix 4x4
 
 Keypad customKeypad = Keypad(makeKeymap(keypadKeys), rowPins, colPins, ROWS, COLS); //inisialisasi keypad matrix 4x4
 
@@ -262,19 +262,23 @@ void loop() {
             }
             break;
           case 6:
-            if (state_input_review == 0) {
+            if (state_input_review == 0) { // Tombol OK: kembali ke state_input = 5
               state_input = 5;
               stateInput();
             }
-            else if (state_input_review == 1) {
-              //TODO: edit sequence
+            else if (state_input_review == 1) { // Tombol Edit: mengedit sekuns ke-n yang dipilih
               editting = 1;
               state_input = 0;
               stateInput();
             }
-            else if (state_input_review == 2) {
-              //TODO: delete sequence
+            else if (state_input_review == 2) { // Tombol Delete: menghapus sekuens ke-n yang dipilih
               deleteSequenceN(i);
+              // memastikan sekuens yang telah dihapus tidak muncul kembali jika sekuens yg dihapus 
+              // adalah sekuens terakhir
+              if (i >= seq){
+                i =  seq - 1;
+                
+              }
               state_input_review = 3;
               stateInputReview();
             }
