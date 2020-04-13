@@ -8,18 +8,22 @@
 #include<Keypad.h>
 
 // PINS
-#define PUMP1 PB15          // pin led indikator pompa 1
+#define PUMP1 PB13          // pin led indikator pompa 1
 #define PUMP2 PB14          // pin led indikator pompa 2
-#define PUMP3 PB13          // pin led indikator pompa 3
-#define DIR0 PA9            // pin led indikator arah mendorong/memompa
-#define DIR1 PA8            // pin led indikator arah menghisap
+#define PUMP3 PB15          // pin led indikator pompa 3
+#define DIR0 PA8            // pin led indikator arah mendorong/memompa
+#define DIR1 PA9            // pin led indikator arah menghisap
 #define PUMP_STEP PB3       // pin step driver untuk menjalankan pompa
 #define PUMP_DIR PB4        // pin untuk mengatur arah pompa cairan
 #define PUMP1_ENABLE PB5    // pin enable pompa 1
 #define PUMP2_ENABLE PB8    // pin enable pompa 2
 #define PUMP3_PWM PB1       // pin input pompa 3 (input PWM)
-#define PUMP3_EN_1 PB10     // pin enable 1 pompa 3
-#define PUMP3_EN_2 PB11     // pin enable 2 pompa 3
+#define PUMP3_EN_1 PB10     // pin enable 1 pompa 3--/-
+#define PUMP3_
+
+
+
+EN_2 PB11     // pin enable 2 pompa 3
 
 //Variables
 #define LCD_ADDRESS 0x27 // address I2C LCD
