@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Microfluidic Pump</title>
+
+    <link rel="stylesheet" href="style.css">
+
+
+    <!-- SCRIPTS -->
+    <script src="scripts.js"></script>
+</head>
+
+<body>
+
+    <div id="menu" class="sidebar">
+        <a id="menu1" class="siderbarmenu" href="#"
+            onclick="sidebarMenuSelected(1); openPage(1)">Add Sequence</a>
+        <a id="menu2" class="siderbarmenu" href="#" 
+            onclick="sidebarMenuSelected(2); openPage(2)">Review</a>
+        <a id="menu3" class="siderbarmenu" href="#"
+            onclick="sidebarMenuSelected(3); openPage(3)">Run</a>
+    </div>
+
+    <!-- Sequence Input -->
+    <div class="content">
+        <div id="pumpinput">
+            <label>Pump</label> <br>
+            <input type="radio" id="pump1" name="pump" value="1" checked>
+            <label for="pump1">1</label>
+            <input type="radio" id="pump2" name="pump" value="2">
+            <label for="pump2">2</label>
+            <input type="radio" id="pump3" name="pump" value="3">
+            <label for="pump3">3</label>
+        </div>
+
+        <br>
+
+        <div id="directioninput">
+            <label>Direction</label> <br>
+            <input type="radio" id="dir1" name="dir" value="1" checked>
+            <label for="dir1">Pumping</label>
+            <input type="radio" id="dir2" name="dir" value="2">
+            <label for="dir1">Sucking</label>
+        </div>
+
+        <br>
+
+        <div id="flowrateinput">
+            <label for="flowrate">Flow Rate</label> <br>
+            <input type="number" id="flowrate" name="flowrate" min="0" max="10000" value="0">
+            <label for="flowrate">uL/min</label>
+        </div>
+
+        <br>
+
+        <div>
+            <select id="voldur" oninput="volDurSelect();">
+                <option value="1" selected>Duration</option>
+                <option value="2">Volume</option>
+            </select>
+        </div>
+
+        <div id="durationinput" class="voldurshow">
+            <input type="number" id="duration" name="duration" min="0" max="36000" value="0">
+            <label for="duration">s</label>
+        </div>
+
+        <div id="volumeinput" class="voldurhide">
+            <input type="number" id="volume" name="volume" min="0" max="99999" value="0">
+            <label for="volume">uL</label>
+        </div>
+
+        <br>
+
+        <button type="button" id="addsequencebtn" onclick="addSequenceButton();">
+            Add Sequence</button>
+    </div>
+    <!-- End of Sequence Input -->
+
+    <!-- Sequence Review -->
+    <div class="content">
+        <div id="seq_review">test<br>test</div>
+    </div>
+
+    <!-- End of Sequence Review -->
+</body>
+
+
+</html>

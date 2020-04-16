@@ -1,0 +1,51 @@
+*{
+    padding: 0;
+    margin: 0;
+}
+
+div.voldurhide{
+    overflow: hidden;
+    width: 0;
+    height: 0;
+}
+
+div.voldurshow{
+    overflow: hidden;
+    width: 100%;
+    height: fit-content;
+}
+
+.sidebar{
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 150px;
+    position: fixed;
+    background-color: #dddddd;
+    opacity: 90%;
+    padding-top: 30px;
+    overflow: auto;
+}
+
+.sidebar a{
+    display: block;
+    padding: 5px 15px;
+    text-decoration: none;
+    font-family: Georgia;
+    color: #000000;
+}
+.sidebar a:hover{
+    background-color: #aaaaaa;
+}
+
+.sidebar a:active{
+    background-color: #888888;
+}
+
+.content{
+    display: block;
+    margin-left: 150px;
+    padding: 20px;
+    overflow: auto;
+}
+

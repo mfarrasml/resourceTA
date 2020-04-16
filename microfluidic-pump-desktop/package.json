@@ -1,0 +1,14 @@
+{
+  "name": "microfluidic-pump-desktop",
+  "version": "1.0.0",
+  "description": "Desktop app for microfluidic pump",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "Muhammad Farras Muwaffaq L.",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^8.2.2"
+  }
+}
